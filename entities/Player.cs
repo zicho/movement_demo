@@ -12,7 +12,7 @@ namespace Entities
         private readonly int _movementSpeed = 500;
         private readonly int _movementAcceleration = 40;
         private readonly float _groundDeceleration = 0.4f; // slowdown in percent per frame (0.01 per percent)
-        private readonly float _airDeceleration = 0.02f; // slowdown in percent per frame (0.01 per percent)
+        private readonly float _airDeceleration = 0.02f; // slowddown in percent per frame (0.01 per percent)
 
         // jumping
         private readonly int _jumpPower = 800;
