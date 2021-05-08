@@ -1,4 +1,6 @@
 using System;
+using Constants;
+using Enums;
 using Godot;
 
 namespace Entities
@@ -27,31 +29,17 @@ namespace Entities
         private readonly int _maxGravity = 1200;
 
         // states (Replace with statehandler?)
-        public bool InAir => PlayerState == State.Jumping || PlayerState == State.Falling;
+        public bool InAir => CurrentState == PlayerState.Jumping || CurrentState == PlayerState.Falling;
         // public bool Falling => _vel.y > 0;
         // public bool Jumping => _vel.y < 0;
         public bool MovementPressed => Input.IsActionPressed("ui_left") || Input.IsActionPressed("ui_right");
         public bool MovingRight => _vel.x > 0;
         public bool MovingLeft => _vel.x < 0;
 
-        public HorizontalDirection LookDirection;
-        public enum HorizontalDirection
-        {
-            Right,
-            Left
-        }
+        public bool AimLocked { get; private set; }
 
-        public State PlayerState;
-        public enum State
-        {
-            Stopped,
-            Running,
-            Jumping,
-            Dashing,
-            Falling,
-            WallSliding,
-            WallJumping
-        }
+        public HorizontalDirection LookDirection;
+        public PlayerState CurrentState;
 
         // dashing
         private bool _canDash;
@@ -140,6 +128,7 @@ namespace Entities
             JumpStateHandler();
             Jump();
             Dash();
+            WallSliding();
             Gravity();
             StateHandler();
 
@@ -156,11 +145,13 @@ namespace Entities
                 _vel = MoveAndSlide(_vel, Vector2.Up);
             }
 
-            _stateLabel.Text = PlayerState.ToString();
+            _stateLabel.Text = CurrentState.ToString();
         }
 
         private void HandleLookDirection()
         {
+            AimLocked = Input.IsActionPressed("lock_look_direction");
+
             if (!Input.IsActionPressed("lock_look_direction") && MovingRight)
             {
                 _sprite.FlipH = false;
@@ -175,7 +166,7 @@ namespace Entities
 
         private void Run()
         {
-            if (PlayerState == State.WallJumping) return;
+            if (CurrentState == PlayerState.WallJumping) return;
 
             if (Input.IsActionPressed("ui_right"))
             {
@@ -186,11 +177,11 @@ namespace Entities
                 _vel.x = Math.Max(_vel.x - _movementAcceleration, -_movementSpeed);
             }
 
-            if (IsOnFloor() && PlayerState != State.Running)
+            if (IsOnFloor() && CurrentState != PlayerState.Running)
             {
                 _vel.x = Mathf.Lerp(_vel.x, 0, _groundDeceleration);
             }
-            else if (!IsOnFloor() && PlayerState != State.Running)
+            else if (!IsOnFloor() && CurrentState != PlayerState.Running)
             { // AIR FRICION
                 _vel.x = Mathf.Lerp(_vel.x, 0, _airDeceleration);
             }
@@ -262,31 +253,31 @@ namespace Entities
             }
         }
 
-        private Vector2 GetInputDirection()
+        public Vector2 GetInputDirection()
         {
             if (Input.IsActionPressed("ui_up"))
             {
-                if (Input.IsActionPressed("ui_left")) return new Vector2(-1, -1);
-                else if (Input.IsActionPressed("ui_right")) return new Vector2(1, -1);
-                else return Vector2.Up;
+                if (Input.IsActionPressed("ui_left")) return Directions.UP_LEFT;
+                else if (Input.IsActionPressed("ui_right")) return Directions.UP_RIGHT;
+                else return Directions.UP;
             }
             else if (Input.IsActionPressed("ui_right"))
             {
-                if (Input.IsActionPressed("ui_up")) return new Vector2(1, -1);
-                else if (Input.IsActionPressed("ui_down")) return new Vector2(1, 1);
-                else return Vector2.Right;
+                if (Input.IsActionPressed("ui_up")) return Directions.UP_RIGHT;
+                else if (Input.IsActionPressed("ui_down")) return Directions.DOWN_RIGHT;
+                else return Directions.RIGHT;
             }
             else if (Input.IsActionPressed("ui_down"))
             {
-                if (Input.IsActionPressed("ui_left")) return new Vector2(-1, 1);
-                else if (Input.IsActionPressed("ui_right")) return new Vector2(1, 1);
-                else return Vector2.Down;
+                if (Input.IsActionPressed("ui_left")) return Directions.DOWN_LEFT;
+                else if (Input.IsActionPressed("ui_right")) return Directions.DOWN_RIGHT;
+                else return Directions.DOWN;
             }
             else if (Input.IsActionPressed("ui_left"))
             {
-                if (Input.IsActionPressed("ui_up")) return new Vector2(-1, -1);
-                else if (Input.IsActionPressed("ui_down")) return new Vector2(-1, 1);
-                else return Vector2.Left;
+                if (Input.IsActionPressed("ui_up")) return Directions.UP_LEFT;
+                else if (Input.IsActionPressed("ui_down")) return Directions.DOWN_LEFT;
+                else return Directions.LEFT;
             }
 
             return MovingRight ? Vector2.Right : Vector2.Left;
@@ -311,16 +302,20 @@ namespace Entities
 
         private void Gravity()
         {
-            if (PlayerState != State.WallSliding || PlayerState != State.WallJumping) _vel.y = Math.Min(_vel.y + _gravity, _maxGravity);
+            if (CurrentState != PlayerState.WallSliding || CurrentState != PlayerState.WallJumping) _vel.y = Math.Min(_vel.y + _gravity, _maxGravity);
             else _vel.y = _slideSpeed;
+        }
+
+        private void WallSliding() {
+            if(CurrentState == PlayerState.Jumping || CurrentState == PlayerState.Falling) GD.Print("Yeee");
         }
 
         private void StateHandler()
         {
-            if (MovementPressed && IsOnFloor()) PlayerState = State.Running;
-            else if (!MovementPressed && IsOnFloor()) PlayerState = State.Stopped;
-            else if (!IsOnFloor() && _vel.y < 0) PlayerState = State.Jumping;
-            else if (!IsOnFloor() && _vel.y > 0) PlayerState = State.Falling;
+            if (MovementPressed && IsOnFloor()) CurrentState = PlayerState.Running;
+            else if (!MovementPressed && IsOnFloor()) CurrentState = PlayerState.Stopped;
+            else if (!IsOnFloor() && _vel.y < 0) CurrentState = PlayerState.Jumping;
+            else if (!IsOnFloor() && _vel.y > 0) CurrentState = PlayerState.Falling;
 
             // if (!IsOnFloor())
             // {
@@ -338,7 +333,7 @@ namespace Entities
 
             // if (PlayerState == State.WallSliding) _canDash = false;
 
-            if (_isDashing) PlayerState = State.Dashing;
+            if (_isDashing) CurrentState = PlayerState.Dashing;
         }
         // private void AnimationHandler()
         // {
